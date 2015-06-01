@@ -1,12 +1,8 @@
-use std::error;
-use std::fmt;
-use std::io;
-use std::result;
+use core::prelude::*;
+use core::fmt;
+use io::{Read, Write};
 
 use ByteOrder;
-
-/// A short-hand for `result::Result<T, byteorder::Error>`.
-pub type Result<T> = result::Result<T, Error>;
 
 /// An error type for reading bytes.
 ///
@@ -16,56 +12,30 @@ pub type Result<T> = result::Result<T, Error>;
 /// Note that this error is also used for the `write` methods to keep things
 /// consistent.
 #[derive(Debug)]
-pub enum Error {
+pub enum Error<E> {
     /// An unexpected EOF.
     ///
     /// This occurs when a call to the underlying reader returns `0` bytes,
     /// but more bytes are required to decode a meaningful value.
     UnexpectedEOF,
     /// Any underlying IO error that occurs while reading bytes.
-    Io(io::Error),
+    Read(E),
 }
 
-impl From<io::Error> for Error {
-    fn from(err: io::Error) -> Error { Error::Io(err) }
+impl<E> From<E> for Error<E> {
+    fn from(err: E) -> Error<E> { Error::Read(err) }
 }
 
-impl From<Error> for io::Error {
-    fn from(err: Error) -> io::Error {
-        match err {
-            Error::Io(err) => err,
-            Error::UnexpectedEOF => io::Error::new(io::ErrorKind::Other,
-                                                   "unexpected EOF")
-        }
-    }
-}
-
-impl fmt::Display for Error {
+impl<E> fmt::Display for Error<E> where E: fmt::Display {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Error::UnexpectedEOF => write!(f, "Unexpected end of file."),
-            Error::Io(ref err) => err.fmt(f),
+            Error::Read(ref err) => err.fmt(f),
         }
     }
 }
 
-impl error::Error for Error {
-    fn description(&self) -> &str {
-        match *self {
-            Error::UnexpectedEOF => "Unexpected end of file.",
-            Error::Io(ref err) => error::Error::description(err),
-        }
-    }
-
-    fn cause(&self) -> Option<&error::Error> {
-        match *self {
-            Error::UnexpectedEOF => None,
-            Error::Io(ref err) => err.cause(),
-        }
-    }
-}
-
-/// Extends `Read` with methods for reading numbers. (For `std::io`.)
+/// Extends `Read` with methods for reading numbers. (For `core::io`.)
 ///
 /// Most of the methods defined here have an unconstrained type parameter that
 /// must be explicitly instantiated. Typically, it is instantiated with either
@@ -76,19 +46,19 @@ impl error::Error for Error {
 /// Read unsigned 16 bit big-endian integers from a `Read`:
 ///
 /// ```rust
-/// use std::io::Cursor;
+/// use core::io::Cursor;
 /// use byteorder::{BigEndian, ReadBytesExt};
 ///
 /// let mut rdr = Cursor::new(vec![2, 5, 3, 0]);
 /// assert_eq!(517, rdr.read_u16::<BigEndian>().unwrap());
 /// assert_eq!(768, rdr.read_u16::<BigEndian>().unwrap());
 /// ```
-pub trait ReadBytesExt: io::Read {
+pub trait ReadBytesExt: Read {
     /// Reads an unsigned 8 bit integer from the underlying reader.
     ///
     /// Note that since this reads a single byte, no byte order conversions
     /// are used. It is included for completeness.
-    fn read_u8(&mut self) -> Result<u8> {
+    fn read_u8(&mut self) -> Result<u8, Error<<Self as Read>::Error>> {
         let mut buf = [0; 1];
         try!(read_full(self, &mut buf));
         Ok(buf[0])
@@ -98,63 +68,63 @@ pub trait ReadBytesExt: io::Read {
     ///
     /// Note that since this reads a single byte, no byte order conversions
     /// are used. It is included for completeness.
-    fn read_i8(&mut self) -> Result<i8> {
+    fn read_i8(&mut self) -> Result<i8, Error<<Self as Read>::Error>> {
         let mut buf = [0; 1];
         try!(read_full(self, &mut buf));
         Ok(buf[0] as i8)
     }
 
     /// Reads an unsigned 16 bit integer from the underlying reader.
-    fn read_u16<T: ByteOrder>(&mut self) -> Result<u16> {
+    fn read_u16<T: ByteOrder>(&mut self) -> Result<u16, Error<<Self as Read>::Error>> {
         let mut buf = [0; 2];
         try!(read_full(self, &mut buf));
         Ok(T::read_u16(&buf))
     }
 
     /// Reads a signed 16 bit integer from the underlying reader.
-    fn read_i16<T: ByteOrder>(&mut self) -> Result<i16> {
+    fn read_i16<T: ByteOrder>(&mut self) -> Result<i16, Error<<Self as Read>::Error>> {
         let mut buf = [0; 2];
         try!(read_full(self, &mut buf));
         Ok(T::read_i16(&buf))
     }
 
     /// Reads an unsigned 32 bit integer from the underlying reader.
-    fn read_u32<T: ByteOrder>(&mut self) -> Result<u32> {
+    fn read_u32<T: ByteOrder>(&mut self) -> Result<u32, Error<<Self as Read>::Error>> {
         let mut buf = [0; 4];
         try!(read_full(self, &mut buf));
         Ok(T::read_u32(&buf))
     }
 
     /// Reads a signed 32 bit integer from the underlying reader.
-    fn read_i32<T: ByteOrder>(&mut self) -> Result<i32> {
+    fn read_i32<T: ByteOrder>(&mut self) -> Result<i32, Error<<Self as Read>::Error>> {
         let mut buf = [0; 4];
         try!(read_full(self, &mut buf));
         Ok(T::read_i32(&buf))
     }
 
     /// Reads an unsigned 64 bit integer from the underlying reader.
-    fn read_u64<T: ByteOrder>(&mut self) -> Result<u64> {
+    fn read_u64<T: ByteOrder>(&mut self) -> Result<u64, Error<<Self as Read>::Error>> {
         let mut buf = [0; 8];
         try!(read_full(self, &mut buf));
         Ok(T::read_u64(&buf))
     }
 
     /// Reads a signed 64 bit integer from the underlying reader.
-    fn read_i64<T: ByteOrder>(&mut self) -> Result<i64> {
+    fn read_i64<T: ByteOrder>(&mut self) -> Result<i64, Error<<Self as Read>::Error>> {
         let mut buf = [0; 8];
         try!(read_full(self, &mut buf));
         Ok(T::read_i64(&buf))
     }
 
     /// Reads an unsigned n-bytes integer from the underlying reader.
-    fn read_uint<T: ByteOrder>(&mut self, nbytes: usize) -> Result<u64> {
+    fn read_uint<T: ByteOrder>(&mut self, nbytes: usize) -> Result<u64, Error<<Self as Read>::Error>> {
         let mut buf = [0; 8];
         try!(read_full(self, &mut buf[..nbytes]));
         Ok(T::read_uint(&buf[..nbytes], nbytes))
     }
 
     /// Reads a signed n-bytes integer from the underlying reader.
-    fn read_int<T: ByteOrder>(&mut self, nbytes: usize) -> Result<i64> {
+    fn read_int<T: ByteOrder>(&mut self, nbytes: usize) -> Result<i64, Error<<Self as Read>::Error>> {
         let mut buf = [0; 8];
         try!(read_full(self, &mut buf[..nbytes]));
         Ok(T::read_int(&buf[..nbytes], nbytes))
@@ -162,7 +132,7 @@ pub trait ReadBytesExt: io::Read {
 
     /// Reads a IEEE754 single-precision (4 bytes) floating point number from
     /// the underlying reader.
-    fn read_f32<T: ByteOrder>(&mut self) -> Result<f32> {
+    fn read_f32<T: ByteOrder>(&mut self) -> Result<f32, Error<<Self as Read>::Error>> {
         let mut buf = [0; 4];
         try!(read_full(self, &mut buf));
         Ok(T::read_f32(&buf))
@@ -170,7 +140,7 @@ pub trait ReadBytesExt: io::Read {
 
     /// Reads a IEEE754 double-precision (8 bytes) floating point number from
     /// the underlying reader.
-    fn read_f64<T: ByteOrder>(&mut self) -> Result<f64> {
+    fn read_f64<T: ByteOrder>(&mut self) -> Result<f64, Error<<Self as Read>::Error>> {
         let mut buf = [0; 8];
         try!(read_full(self, &mut buf));
         Ok(T::read_f64(&buf))
@@ -179,26 +149,25 @@ pub trait ReadBytesExt: io::Read {
 
 /// All types that implement `Read` get methods defined in `ReadBytesExt`
 /// for free.
-impl<R: io::Read + ?Sized> ReadBytesExt for R {}
+impl<R: Read + ?Sized> ReadBytesExt for R {}
 
-fn read_full<R: io::Read + ?Sized>(rdr: &mut R, buf: &mut [u8]) -> Result<()> {
+fn read_full<R: Read + ?Sized>(rdr: &mut R, buf: &mut [u8]) -> Result<(), Error<<R as Read>::Error>> {
     let mut nread = 0usize;
     while nread < buf.len() {
         match rdr.read(&mut buf[nread..]) {
             Ok(0) => return Err(Error::UnexpectedEOF),
             Ok(n) => nread += n,
-            Err(ref e) if e.kind() == io::ErrorKind::Interrupted => {},
             Err(e) => return Err(From::from(e))
         }
     }
     Ok(())
 }
 
-fn write_all<W: io::Write + ?Sized>(wtr: &mut W, buf: &[u8]) -> Result<()> {
+fn write_all<W: Write + ?Sized>(wtr: &mut W, buf: &[u8]) -> Result<(), Error<<W as Write>::Error>> {
     wtr.write_all(buf).map_err(From::from)
 }
 
-/// Extends `Write` with methods for writing numbers. (For `std::io`.)
+/// Extends `Write` with methods for writing numbers. (For `core::io`.)
 ///
 /// Most of the methods defined here have an unconstrained type parameter that
 /// must be explicitly instantiated. Typically, it is instantiated with either
@@ -216,12 +185,12 @@ fn write_all<W: io::Write + ?Sized>(wtr: &mut W, buf: &[u8]) -> Result<()> {
 /// wtr.write_u16::<BigEndian>(768).unwrap();
 /// assert_eq!(wtr, vec![2, 5, 3, 0]);
 /// ```
-pub trait WriteBytesExt: io::Write {
+pub trait WriteBytesExt: Write {
     /// Writes an unsigned 8 bit integer to the underlying writer.
     ///
     /// Note that since this writes a single byte, no byte order conversions
     /// are used. It is included for completeness.
-    fn write_u8(&mut self, n: u8) -> Result<()> {
+    fn write_u8(&mut self, n: u8) -> Result<(), Error<<Self as Write>::Error>> {
         write_all(self, &[n])
     }
 
@@ -229,47 +198,47 @@ pub trait WriteBytesExt: io::Write {
     ///
     /// Note that since this writes a single byte, no byte order conversions
     /// are used. It is included for completeness.
-    fn write_i8(&mut self, n: i8) -> Result<()> {
+    fn write_i8(&mut self, n: i8) -> Result<(), Error<<Self as Write>::Error>> {
         write_all(self, &[n as u8])
     }
 
     /// Writes an unsigned 16 bit integer to the underlying writer.
-    fn write_u16<T: ByteOrder>(&mut self, n: u16) -> Result<()> {
+    fn write_u16<T: ByteOrder>(&mut self, n: u16) -> Result<(), Error<<Self as Write>::Error>> {
         let mut buf = [0; 2];
         T::write_u16(&mut buf, n);
         write_all(self, &buf)
     }
 
     /// Writes a signed 16 bit integer to the underlying writer.
-    fn write_i16<T: ByteOrder>(&mut self, n: i16) -> Result<()> {
+    fn write_i16<T: ByteOrder>(&mut self, n: i16) -> Result<(), Error<<Self as Write>::Error>> {
         let mut buf = [0; 2];
         T::write_i16(&mut buf, n);
         write_all(self, &buf)
     }
 
     /// Writes an unsigned 32 bit integer to the underlying writer.
-    fn write_u32<T: ByteOrder>(&mut self, n: u32) -> Result<()> {
+    fn write_u32<T: ByteOrder>(&mut self, n: u32) -> Result<(), Error<<Self as Write>::Error>> {
         let mut buf = [0; 4];
         T::write_u32(&mut buf, n);
         write_all(self, &buf)
     }
 
     /// Writes a signed 32 bit integer to the underlying writer.
-    fn write_i32<T: ByteOrder>(&mut self, n: i32) -> Result<()> {
+    fn write_i32<T: ByteOrder>(&mut self, n: i32) -> Result<(), Error<<Self as Write>::Error>> {
         let mut buf = [0; 4];
         T::write_i32(&mut buf, n);
         write_all(self, &buf)
     }
 
     /// Writes an unsigned 64 bit integer to the underlying writer.
-    fn write_u64<T: ByteOrder>(&mut self, n: u64) -> Result<()> {
+    fn write_u64<T: ByteOrder>(&mut self, n: u64) -> Result<(), Error<<Self as Write>::Error>> {
         let mut buf = [0; 8];
         T::write_u64(&mut buf, n);
         write_all(self, &buf)
     }
 
     /// Writes a signed 64 bit integer to the underlying writer.
-    fn write_i64<T: ByteOrder>(&mut self, n: i64) -> Result<()> {
+    fn write_i64<T: ByteOrder>(&mut self, n: i64) -> Result<(), Error<<Self as Write>::Error>> {
         let mut buf = [0; 8];
         T::write_i64(&mut buf, n);
         write_all(self, &buf)
@@ -277,7 +246,7 @@ pub trait WriteBytesExt: io::Write {
 
     /// Writes a IEEE754 single-precision (4 bytes) floating point number to
     /// the underlying writer.
-    fn write_f32<T: ByteOrder>(&mut self, n: f32) -> Result<()> {
+    fn write_f32<T: ByteOrder>(&mut self, n: f32) -> Result<(), Error<<Self as Write>::Error>> {
         let mut buf = [0; 4];
         T::write_f32(&mut buf, n);
         write_all(self, &buf)
@@ -285,7 +254,7 @@ pub trait WriteBytesExt: io::Write {
 
     /// Writes a IEEE754 double-precision (8 bytes) floating point number to
     /// the underlying writer.
-    fn write_f64<T: ByteOrder>(&mut self, n: f64) -> Result<()> {
+    fn write_f64<T: ByteOrder>(&mut self, n: f64) -> Result<(), Error<<Self as Write>::Error>> {
         let mut buf = [0; 8];
         T::write_f64(&mut buf, n);
         write_all(self, &buf)
@@ -294,4 +263,4 @@ pub trait WriteBytesExt: io::Write {
 
 /// All types that implement `Write` get methods defined in `WriteBytesExt`
 /// for free.
-impl<W: io::Write + ?Sized> WriteBytesExt for W {}
+impl<W: Write + ?Sized> WriteBytesExt for W {}

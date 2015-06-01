@@ -14,7 +14,7 @@ implement `Read` and `Write`.
 Read unsigned 16 bit big-endian integers from a `Read` type:
 
 ```rust
-use std::io::Cursor;
+use core::io::Cursor;
 use byteorder::{BigEndian, ReadBytesExt};
 
 let mut rdr = Cursor::new(vec![2, 5, 3, 0]);
@@ -38,12 +38,19 @@ assert_eq!(wtr, vec![5, 2, 0, 3]);
 
 #![crate_name = "byteorder"]
 #![doc(html_root_url = "http://burntsushi.net/rustdoc/byteorder")]
-
+#![feature(no_std)]
+#![feature(core)]
+#![no_std]
 #![deny(missing_docs)]
 
-use std::mem::transmute;
+#[macro_use]
+extern crate core;
+extern crate io;
 
-pub use new::{ReadBytesExt, WriteBytesExt, Error, Result};
+use core::prelude::*;
+use core::mem::transmute;
+
+pub use new::{ReadBytesExt, WriteBytesExt, Error};
 
 mod new;
 
@@ -232,7 +239,7 @@ macro_rules! read_num_bytes {
         }
     });
     ($ty:ty, $size:expr, le $bytes:expr, $src:expr, $which:ident) => ({
-        use std::ptr::copy_nonoverlapping;
+        use core::ptr::copy_nonoverlapping;
 
         assert!($bytes > 0 && $bytes < 9 && $bytes <= $src.len());
         let mut out = [0u8; $size];
@@ -243,7 +250,7 @@ macro_rules! read_num_bytes {
         }
     });
     ($ty:ty, $size:expr, be $bytes:expr, $src:expr, $which:ident) => ({
-        use std::ptr::copy_nonoverlapping;
+        use core::ptr::copy_nonoverlapping;
 
         assert!($bytes > 0 && $bytes < 9 && $bytes <= $src.len());
         let mut out = [0u8; $size];
@@ -258,7 +265,7 @@ macro_rules! read_num_bytes {
 
 macro_rules! write_num_bytes {
     ($ty:ty, $size:expr, $n:expr, $dst:expr, $which:ident) => ({
-        use std::ptr::copy_nonoverlapping;
+        use core::ptr::copy_nonoverlapping;
 
         assert!($dst.len() >= $size); // critical for memory safety!
         unsafe {
@@ -337,8 +344,8 @@ mod test {
     use test::rand::thread_rng;
     use test::quickcheck::{QuickCheck, StdGen, Testable};
 
-    const U64_MAX: u64 = ::std::u64::MAX;
-    const I64_MAX: u64 = ::std::i64::MAX as u64;
+    const U64_MAX: u64 = ::core::u64::MAX;
+    const I64_MAX: u64 = ::core::i64::MAX as u64;
 
     fn qc_sized<A: Testable>(f: A, size: u64) {
         QuickCheck::new()
@@ -392,7 +399,7 @@ mod test {
         ($name:ident, $ty_int:ident, $max:expr,
          $read:ident, $write:ident) => (
             mod $name {
-                use std::mem::size_of;
+                use core::mem::size_of;
                 use {BigEndian, ByteOrder, NativeEndian, LittleEndian};
                 use super::qc_sized;
 
@@ -432,14 +439,14 @@ mod test {
         );
     }
 
-    qc_byte_order!(prop_u16, u16, ::std::u16::MAX as u64, read_u16, write_u16);
-    qc_byte_order!(prop_i16, i16, ::std::i16::MAX as u64, read_i16, write_i16);
-    qc_byte_order!(prop_u32, u32, ::std::u32::MAX as u64, read_u32, write_u32);
-    qc_byte_order!(prop_i32, i32, ::std::i32::MAX as u64, read_i32, write_i32);
-    qc_byte_order!(prop_u64, u64, ::std::u64::MAX as u64, read_u64, write_u64);
-    qc_byte_order!(prop_i64, i64, ::std::i64::MAX as u64, read_i64, write_i64);
-    qc_byte_order!(prop_f32, f32, ::std::u64::MAX as u64, read_f32, write_f32);
-    qc_byte_order!(prop_f64, f64, ::std::i64::MAX as u64, read_f64, write_f64);
+    qc_byte_order!(prop_u16, u16, ::core::u16::MAX as u64, read_u16, write_u16);
+    qc_byte_order!(prop_i16, i16, ::core::i16::MAX as u64, read_i16, write_i16);
+    qc_byte_order!(prop_u32, u32, ::core::u32::MAX as u64, read_u32, write_u32);
+    qc_byte_order!(prop_i32, i32, ::core::i32::MAX as u64, read_i32, write_i32);
+    qc_byte_order!(prop_u64, u64, ::core::u64::MAX as u64, read_u64, write_u64);
+    qc_byte_order!(prop_i64, i64, ::core::i64::MAX as u64, read_i64, write_i64);
+    qc_byte_order!(prop_f32, f32, ::core::u64::MAX as u64, read_f32, write_f32);
+    qc_byte_order!(prop_f64, f64, ::core::i64::MAX as u64, read_f64, write_f64);
 
     qc_byte_order!(prop_uint_1, u64, super::U64_MAX, 1, read_uint, write_u64);
     qc_byte_order!(prop_uint_2, u64, super::U64_MAX, 2, read_uint, write_u64);
@@ -463,7 +470,7 @@ mod test {
         ($name:ident, $ty_int:ident, $max:expr,
          $bytes:expr, $read:ident, $write:ident) => (
             mod $name {
-                use std::io::Cursor;
+                use core::io::Cursor;
                 use {
                     ReadBytesExt, WriteBytesExt,
                     BigEndian, NativeEndian, LittleEndian,
@@ -511,7 +518,7 @@ mod test {
         );
         ($name:ident, $ty_int:ident, $max:expr, $read:ident, $write:ident) => (
             mod $name {
-                use std::io::Cursor;
+                use core::io::Cursor;
                 use {
                     ReadBytesExt, WriteBytesExt,
                     BigEndian, NativeEndian, LittleEndian,
@@ -554,14 +561,14 @@ mod test {
         );
     }
 
-    qc_bytes_ext!(prop_ext_u16, u16, ::std::u16::MAX as u64, read_u16, write_u16);
-    qc_bytes_ext!(prop_ext_i16, i16, ::std::i16::MAX as u64, read_i16, write_i16);
-    qc_bytes_ext!(prop_ext_u32, u32, ::std::u32::MAX as u64, read_u32, write_u32);
-    qc_bytes_ext!(prop_ext_i32, i32, ::std::i32::MAX as u64, read_i32, write_i32);
-    qc_bytes_ext!(prop_ext_u64, u64, ::std::u64::MAX as u64, read_u64, write_u64);
-    qc_bytes_ext!(prop_ext_i64, i64, ::std::i64::MAX as u64, read_i64, write_i64);
-    qc_bytes_ext!(prop_ext_f32, f32, ::std::u64::MAX as u64, read_f32, write_f32);
-    qc_bytes_ext!(prop_ext_f64, f64, ::std::i64::MAX as u64, read_f64, write_f64);
+    qc_bytes_ext!(prop_ext_u16, u16, ::core::u16::MAX as u64, read_u16, write_u16);
+    qc_bytes_ext!(prop_ext_i16, i16, ::core::i16::MAX as u64, read_i16, write_i16);
+    qc_bytes_ext!(prop_ext_u32, u32, ::core::u32::MAX as u64, read_u32, write_u32);
+    qc_bytes_ext!(prop_ext_i32, i32, ::core::i32::MAX as u64, read_i32, write_i32);
+    qc_bytes_ext!(prop_ext_u64, u64, ::core::u64::MAX as u64, read_u64, write_u64);
+    qc_bytes_ext!(prop_ext_i64, i64, ::core::i64::MAX as u64, read_i64, write_i64);
+    qc_bytes_ext!(prop_ext_f32, f32, ::core::u64::MAX as u64, read_f32, write_f32);
+    qc_bytes_ext!(prop_ext_f64, f64, ::core::i64::MAX as u64, read_f64, write_f64);
 
     qc_bytes_ext!(prop_ext_uint_1, u64, super::U64_MAX, 1, read_uint, write_u64);
     qc_bytes_ext!(prop_ext_uint_2, u64, super::U64_MAX, 2, read_uint, write_u64);
