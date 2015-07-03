@@ -1,39 +1,10 @@
 use core::prelude::*;
 use core::fmt;
-use io::{Read, Write};
+use io::{Read, Write, EndOfFile};
 
 use ByteOrder;
 
-/// An error type for reading bytes.
-///
-/// This is a thin wrapper over the standard `io::Error` type. Namely, it
-/// adds one additional error case: an unexpected EOF.
-///
-/// Note that this error is also used for the `write` methods to keep things
-/// consistent.
-#[derive(Debug)]
-pub enum Error<E> {
-    /// An unexpected EOF.
-    ///
-    /// This occurs when a call to the underlying reader returns `0` bytes,
-    /// but more bytes are required to decode a meaningful value.
-    UnexpectedEOF,
-    /// Any underlying IO error that occurs while reading bytes.
-    Read(E),
-}
-
-impl<E> From<E> for Error<E> {
-    fn from(err: E) -> Error<E> { Error::Read(err) }
-}
-
-impl<E> fmt::Display for Error<E> where E: fmt::Display {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Error::UnexpectedEOF => write!(f, "Unexpected end of file."),
-            Error::Read(ref err) => err.fmt(f),
-        }
-    }
-}
+// FIXME: the error type should be a defaulting type parameter on each function, but specifying a one type argument and letting the other one default doesn't work
 
 /// Extends `Read` with methods for reading numbers. (For `core::io`.)
 ///
@@ -58,9 +29,9 @@ pub trait ReadBytesExt: Read {
     ///
     /// Note that since this reads a single byte, no byte order conversions
     /// are used. It is included for completeness.
-    fn read_u8(&mut self) -> Result<u8, Error<<Self as Read>::Error>> {
+    fn read_u8(&mut self) -> Result<u8, Self::Err> where Self::Err: From<EndOfFile> {
         let mut buf = [0; 1];
-        try!(read_full(self, &mut buf));
+        try!(self.read_all(&mut buf));
         Ok(buf[0])
     }
 
@@ -68,81 +39,81 @@ pub trait ReadBytesExt: Read {
     ///
     /// Note that since this reads a single byte, no byte order conversions
     /// are used. It is included for completeness.
-    fn read_i8(&mut self) -> Result<i8, Error<<Self as Read>::Error>> {
+    fn read_i8(&mut self) -> Result<i8, Self::Err> where Self::Err: From<EndOfFile> {
         let mut buf = [0; 1];
-        try!(read_full(self, &mut buf));
+        try!(self.read_all(&mut buf));
         Ok(buf[0] as i8)
     }
 
     /// Reads an unsigned 16 bit integer from the underlying reader.
-    fn read_u16<T: ByteOrder>(&mut self) -> Result<u16, Error<<Self as Read>::Error>> {
+    fn read_u16<T: ByteOrder>(&mut self) -> Result<u16, Self::Err> where Self::Err: From<EndOfFile> {
         let mut buf = [0; 2];
-        try!(read_full(self, &mut buf));
+        try!(self.read_all(&mut buf));
         Ok(T::read_u16(&buf))
     }
 
     /// Reads a signed 16 bit integer from the underlying reader.
-    fn read_i16<T: ByteOrder>(&mut self) -> Result<i16, Error<<Self as Read>::Error>> {
+    fn read_i16<T: ByteOrder>(&mut self) -> Result<i16, Self::Err> where Self::Err: From<EndOfFile> {
         let mut buf = [0; 2];
-        try!(read_full(self, &mut buf));
+        try!(self.read_all(&mut buf));
         Ok(T::read_i16(&buf))
     }
 
     /// Reads an unsigned 32 bit integer from the underlying reader.
-    fn read_u32<T: ByteOrder>(&mut self) -> Result<u32, Error<<Self as Read>::Error>> {
+    fn read_u32<T: ByteOrder>(&mut self) -> Result<u32, Self::Err> where Self::Err: From<EndOfFile> {
         let mut buf = [0; 4];
-        try!(read_full(self, &mut buf));
+        try!(self.read_all(&mut buf));
         Ok(T::read_u32(&buf))
     }
 
     /// Reads a signed 32 bit integer from the underlying reader.
-    fn read_i32<T: ByteOrder>(&mut self) -> Result<i32, Error<<Self as Read>::Error>> {
+    fn read_i32<T: ByteOrder>(&mut self) -> Result<i32, Self::Err> where Self::Err: From<EndOfFile> {
         let mut buf = [0; 4];
-        try!(read_full(self, &mut buf));
+        try!(self.read_all(&mut buf));
         Ok(T::read_i32(&buf))
     }
 
     /// Reads an unsigned 64 bit integer from the underlying reader.
-    fn read_u64<T: ByteOrder>(&mut self) -> Result<u64, Error<<Self as Read>::Error>> {
+    fn read_u64<T: ByteOrder>(&mut self) -> Result<u64, Self::Err> where Self::Err: From<EndOfFile> {
         let mut buf = [0; 8];
-        try!(read_full(self, &mut buf));
+        try!(self.read_all(&mut buf));
         Ok(T::read_u64(&buf))
     }
 
     /// Reads a signed 64 bit integer from the underlying reader.
-    fn read_i64<T: ByteOrder>(&mut self) -> Result<i64, Error<<Self as Read>::Error>> {
+    fn read_i64<T: ByteOrder>(&mut self) -> Result<i64, Self::Err> where Self::Err: From<EndOfFile> {
         let mut buf = [0; 8];
-        try!(read_full(self, &mut buf));
+        try!(self.read_all(&mut buf));
         Ok(T::read_i64(&buf))
     }
 
     /// Reads an unsigned n-bytes integer from the underlying reader.
-    fn read_uint<T: ByteOrder>(&mut self, nbytes: usize) -> Result<u64, Error<<Self as Read>::Error>> {
+    fn read_uint<T: ByteOrder>(&mut self, nbytes: usize) -> Result<u64, Self::Err> where Self::Err: From<EndOfFile> {
         let mut buf = [0; 8];
-        try!(read_full(self, &mut buf[..nbytes]));
+        try!(self.read_all(&mut buf[..nbytes]));
         Ok(T::read_uint(&buf[..nbytes], nbytes))
     }
 
     /// Reads a signed n-bytes integer from the underlying reader.
-    fn read_int<T: ByteOrder>(&mut self, nbytes: usize) -> Result<i64, Error<<Self as Read>::Error>> {
+    fn read_int<T: ByteOrder>(&mut self, nbytes: usize) -> Result<i64, Self::Err> where Self::Err: From<EndOfFile> {
         let mut buf = [0; 8];
-        try!(read_full(self, &mut buf[..nbytes]));
+        try!(self.read_all(&mut buf[..nbytes]));
         Ok(T::read_int(&buf[..nbytes], nbytes))
     }
 
     /// Reads a IEEE754 single-precision (4 bytes) floating point number from
     /// the underlying reader.
-    fn read_f32<T: ByteOrder>(&mut self) -> Result<f32, Error<<Self as Read>::Error>> {
+    fn read_f32<T: ByteOrder>(&mut self) -> Result<f32, Self::Err> where Self::Err: From<EndOfFile> {
         let mut buf = [0; 4];
-        try!(read_full(self, &mut buf));
+        try!(self.read_all(&mut buf));
         Ok(T::read_f32(&buf))
     }
 
     /// Reads a IEEE754 double-precision (8 bytes) floating point number from
     /// the underlying reader.
-    fn read_f64<T: ByteOrder>(&mut self) -> Result<f64, Error<<Self as Read>::Error>> {
+    fn read_f64<T: ByteOrder>(&mut self) -> Result<f64, Self::Err> where Self::Err: From<EndOfFile> {
         let mut buf = [0; 8];
-        try!(read_full(self, &mut buf));
+        try!(self.read_all(&mut buf));
         Ok(T::read_f64(&buf))
     }
 }
@@ -150,22 +121,6 @@ pub trait ReadBytesExt: Read {
 /// All types that implement `Read` get methods defined in `ReadBytesExt`
 /// for free.
 impl<R: Read + ?Sized> ReadBytesExt for R {}
-
-fn read_full<R: Read + ?Sized>(rdr: &mut R, buf: &mut [u8]) -> Result<(), Error<<R as Read>::Error>> {
-    let mut nread = 0usize;
-    while nread < buf.len() {
-        match rdr.read(&mut buf[nread..]) {
-            Ok(0) => return Err(Error::UnexpectedEOF),
-            Ok(n) => nread += n,
-            Err(e) => return Err(From::from(e))
-        }
-    }
-    Ok(())
-}
-
-fn write_all<W: Write + ?Sized>(wtr: &mut W, buf: &[u8]) -> Result<(), Error<<W as Write>::Error>> {
-    wtr.write_all(buf).map_err(From::from)
-}
 
 /// Extends `Write` with methods for writing numbers. (For `core::io`.)
 ///
@@ -190,74 +145,74 @@ pub trait WriteBytesExt: Write {
     ///
     /// Note that since this writes a single byte, no byte order conversions
     /// are used. It is included for completeness.
-    fn write_u8(&mut self, n: u8) -> Result<(), Error<<Self as Write>::Error>> {
-        write_all(self, &[n])
+    fn write_u8<E=<Self as Write>::Err>(&mut self, n: u8) -> Result<(), Self::Err> where Self::Err: From<EndOfFile> {
+        self.write_all(&[n])
     }
 
     /// Writes a signed 8 bit integer to the underlying writer.
     ///
     /// Note that since this writes a single byte, no byte order conversions
     /// are used. It is included for completeness.
-    fn write_i8(&mut self, n: i8) -> Result<(), Error<<Self as Write>::Error>> {
-        write_all(self, &[n as u8])
+    fn write_i8<E=<Self as Write>::Err>(&mut self, n: i8) -> Result<(), Self::Err> where Self::Err: From<EndOfFile> {
+        self.write_all(&[n as u8])
     }
 
     /// Writes an unsigned 16 bit integer to the underlying writer.
-    fn write_u16<T: ByteOrder>(&mut self, n: u16) -> Result<(), Error<<Self as Write>::Error>> {
+    fn write_u16<T: ByteOrder, E=<Self as Write>::Err>(&mut self, n: u16) -> Result<(), Self::Err> where Self::Err: From<EndOfFile> {
         let mut buf = [0; 2];
         T::write_u16(&mut buf, n);
-        write_all(self, &buf)
+        self.write_all(&buf)
     }
 
     /// Writes a signed 16 bit integer to the underlying writer.
-    fn write_i16<T: ByteOrder>(&mut self, n: i16) -> Result<(), Error<<Self as Write>::Error>> {
+    fn write_i16<T: ByteOrder, E=<Self as Write>::Err>(&mut self, n: i16) -> Result<(), Self::Err> where Self::Err: From<EndOfFile> {
         let mut buf = [0; 2];
         T::write_i16(&mut buf, n);
-        write_all(self, &buf)
+        self.write_all(&buf)
     }
 
     /// Writes an unsigned 32 bit integer to the underlying writer.
-    fn write_u32<T: ByteOrder>(&mut self, n: u32) -> Result<(), Error<<Self as Write>::Error>> {
+    fn write_u32<T: ByteOrder, E=<Self as Write>::Err>(&mut self, n: u32) -> Result<(), Self::Err> where Self::Err: From<EndOfFile> {
         let mut buf = [0; 4];
         T::write_u32(&mut buf, n);
-        write_all(self, &buf)
+        self.write_all(&buf)
     }
 
     /// Writes a signed 32 bit integer to the underlying writer.
-    fn write_i32<T: ByteOrder>(&mut self, n: i32) -> Result<(), Error<<Self as Write>::Error>> {
+    fn write_i32<T: ByteOrder, E=<Self as Write>::Err>(&mut self, n: i32) -> Result<(), Self::Err> where Self::Err: From<EndOfFile> {
         let mut buf = [0; 4];
         T::write_i32(&mut buf, n);
-        write_all(self, &buf)
+        self.write_all(&buf)
     }
 
     /// Writes an unsigned 64 bit integer to the underlying writer.
-    fn write_u64<T: ByteOrder>(&mut self, n: u64) -> Result<(), Error<<Self as Write>::Error>> {
+    fn write_u64<T: ByteOrder, E=<Self as Write>::Err>(&mut self, n: u64) -> Result<(), Self::Err> where Self::Err: From<EndOfFile> {
         let mut buf = [0; 8];
         T::write_u64(&mut buf, n);
-        write_all(self, &buf)
+        self.write_all(&buf)
     }
 
     /// Writes a signed 64 bit integer to the underlying writer.
-    fn write_i64<T: ByteOrder>(&mut self, n: i64) -> Result<(), Error<<Self as Write>::Error>> {
+    fn write_i64<T: ByteOrder, E=<Self as Write>::Err>(&mut self, n: i64) -> Result<(), Self::Err> where Self::Err: From<EndOfFile> {
         let mut buf = [0; 8];
         T::write_i64(&mut buf, n);
-        write_all(self, &buf)
+        self.write_all(&buf)
     }
 
     /// Writes a IEEE754 single-precision (4 bytes) floating point number to
     /// the underlying writer.
-    fn write_f32<T: ByteOrder>(&mut self, n: f32) -> Result<(), Error<<Self as Write>::Error>> {
+    fn write_f32<T: ByteOrder, E=<Self as Write>::Err>(&mut self, n: f32) -> Result<(), Self::Err> where Self::Err: From<EndOfFile> {
         let mut buf = [0; 4];
         T::write_f32(&mut buf, n);
-        write_all(self, &buf)
+        self.write_all(&buf)
     }
 
     /// Writes a IEEE754 double-precision (8 bytes) floating point number to
     /// the underlying writer.
-    fn write_f64<T: ByteOrder>(&mut self, n: f64) -> Result<(), Error<<Self as Write>::Error>> {
+    fn write_f64<T: ByteOrder, E=<Self as Write>::Err>(&mut self, n: f64) -> Result<(), Self::Err> where Self::Err: From<EndOfFile> {
         let mut buf = [0; 8];
         T::write_f64(&mut buf, n);
-        write_all(self, &buf)
+        self.write_all(&buf)
     }
 }
 

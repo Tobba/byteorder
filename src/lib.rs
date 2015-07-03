@@ -39,18 +39,18 @@ assert_eq!(wtr, vec![5, 2, 0, 3]);
 #![crate_name = "byteorder"]
 #![doc(html_root_url = "http://burntsushi.net/rustdoc/byteorder")]
 #![feature(no_std)]
-#![feature(core)]
+#![feature(core, core_prelude, core_slice_ext)]
 #![no_std]
 #![deny(missing_docs)]
 
 #[macro_use]
 extern crate core;
-extern crate io;
+extern crate coreio as io;
 
 use core::prelude::*;
 use core::mem::transmute;
 
-pub use new::{ReadBytesExt, WriteBytesExt, Error};
+pub use new::{ReadBytesExt, WriteBytesExt};
 
 mod new;
 
