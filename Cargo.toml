@@ -15,7 +15,7 @@ name = "byteorder"
 
 [dependencies.coreio]
 git = "https://github.com/Tobba/coreio.git"
-rev = "1b15130b0d85cd2aeb0cf173caaae261765c3969"
+rev = "39c4cdaf595e20c5723be2b24d922898e944ae3f"
 
 [dev-dependencies]
 quickcheck = "*"

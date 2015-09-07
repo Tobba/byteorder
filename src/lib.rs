@@ -43,8 +43,6 @@ assert_eq!(wtr, vec![5, 2, 0, 3]);
 #![no_std]
 #![deny(missing_docs)]
 
-#[macro_use]
-extern crate core;
 extern crate coreio as io;
 
 use core::prelude::*;
